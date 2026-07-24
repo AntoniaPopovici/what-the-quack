@@ -1,0 +1,456 @@
+:root {
+  --pond-950: #072628;
+  --pond-900: #0b3234;
+  --pond-800: #103d3f;
+  --pond-700: #17494b;
+  --pond-600: #205c5c;
+  --panel: #0e3739;
+  --panel-border: rgba(255, 244, 219, 0.1);
+  --cream: #fff6e9;
+  --cream-dim: #bfe4de;
+  --cream-dimmer: #7fada7;
+  --duck: #ffc857;
+  --duck-light: #ffe08a;
+  --coral: #ff8c61;
+  --radius-lg: 28px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+}
+
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(ellipse 120% 60% at 50% 0%, var(--pond-700) 0%, var(--pond-900) 55%, var(--pond-950) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Bottom padding is deliberately larger than top — the wave
+     decoration sits at the very bottom of the viewport, and with
+     equal padding the centered content's lower edge (buttons/trail
+     log) crowded into it. The extra bottom padding shifts the
+     vertical center of the content up, away from the wave. */
+  padding: max(28px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(100px, calc(env(safe-area-inset-bottom) + 72px)) max(18px, env(safe-area-inset-left));
+}
+
+/* Soft, blurred pond-light blobs so the fullscreen background reads as
+   an intentional scene rather than empty space around a floating card. */
+.page::before,
+.page::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.page::before {
+  width: min(60vw, 480px);
+  height: min(60vw, 480px);
+  top: -12%;
+  right: -10%;
+  background: radial-gradient(circle, rgba(255, 200, 87, 0.16) 0%, transparent 70%);
+}
+
+.page::after {
+  width: min(70vw, 560px);
+  height: min(70vw, 560px);
+  bottom: -20%;
+  left: -15%;
+  background: radial-gradient(circle, rgba(255, 140, 97, 0.12) 0%, transparent 70%);
+}
+
+/* A static shoreline silhouette spanning the full viewport width,
+   independent of the (narrower) centered content column — reads
+   clearly in a single frame, unlike the animated ripples/bubbles
+   below, so a wide desktop window still looks like a pond scene even
+   at a glance. */
+.pond-waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: clamp(90px, 18vh, 170px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pond-wave-back {
+  fill: rgba(140, 210, 198, 0.06);
+}
+
+.pond-wave-front {
+  fill: rgba(255, 200, 87, 0.05);
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.eyebrow {
+  font-weight: 800;
+  font-size: clamp(28px, 7vw, 38px);
+  color: var(--cream);
+  letter-spacing: 0.01em;
+}
+
+.duck-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0 14px;
+}
+
+.duck {
+  width: clamp(180px, 50vw, 240px);
+  height: auto;
+  filter: drop-shadow(0 18px 26px rgba(5, 30, 30, 0.45));
+}
+
+.duck-quack {
+  animation: quackpop 260ms ease;
+}
+
+@keyframes quackpop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-10px) rotate(-4deg);
+  }
+  60% {
+    transform: translateY(0) rotate(3deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Category picker */
+
+.category-picker {
+  margin-top: 4px;
+}
+
+.category-prompt {
+  font-weight: 700;
+  font-size: clamp(17px, 4vw, 19px);
+  color: var(--cream);
+  text-align: center;
+  margin: 4px 0 16px;
+}
+
+.description-input {
+  margin-bottom: 14px;
+}
+
+.offtopic-note {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #f0cfa0;
+  background: rgba(255, 200, 87, 0.1);
+  border: 1px solid rgba(255, 200, 87, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.category-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 14px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background 160ms ease;
+  min-height: 84px;
+}
+
+.category-btn:hover {
+  border-color: var(--duck);
+  background: var(--pond-700);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.category-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.category-btn-suggested {
+  border-color: var(--duck);
+  box-shadow: 0 0 0 1px var(--duck) inset;
+}
+
+.category-label {
+  font-size: 13.5px;
+  color: var(--cream);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.category-suggested-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--pond-950);
+  background: var(--duck);
+  border-radius: 999px;
+  padding: 3px 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.category-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cream-dimmer);
+  line-height: 1.4;
+}
+
+/* Ripple tracker */
+
+/* Each stage gets an equal-width column so dot centers land at even
+   intervals — if width instead followed label text length ("understand"
+   vs. "test"), the flex gap would be even but the dots themselves
+   would not be. */
+.ripples {
+  display: flex;
+  margin-bottom: 24px;
+}
+
+.ripple-unit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.ripple-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+  transition: background 220ms ease, border-color 220ms ease, transform 220ms ease;
+}
+
+.ripple-unit.is-active .ripple-dot {
+  animation: pulse 1600ms ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 200, 87, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 200, 87, 0);
+  }
+}
+
+.ripple-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  transition: color 220ms ease;
+}
+
+/* Question + input */
+
+.question {
+  font-weight: 700;
+  font-size: clamp(19px, 4.6vw, 22px);
+  line-height: 1.42;
+  color: var(--cream);
+  text-align: center;
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin: 0 0 18px;
+}
+
+.notes {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  color: var(--cream);
+  font-size: 16px;
+  font-weight: 600;
+  resize: vertical;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.notes::placeholder {
+  color: var(--cream-dimmer);
+  font-weight: 600;
+}
+
+.notes:focus {
+  outline: none;
+  border-color: var(--duck);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.ask-btn {
+  flex: 1;
+  background: var(--duck);
+  color: var(--pond-950);
+  border: none;
+  border-radius: 999px;
+  padding: 15px 18px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background 160ms ease;
+}
+
+.ask-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  background: var(--duck-light);
+}
+
+.ask-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.ask-btn:focus-visible,
+.reset-btn:focus-visible,
+.category-btn:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 2px;
+}
+
+.reset-btn {
+  background: transparent;
+  color: var(--cream-dimmer);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 15px 18px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  min-height: 50px;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.reset-btn:hover {
+  border-color: var(--cream-dimmer);
+  color: var(--cream);
+}
+
+/* Trail / log */
+
+.log {
+  margin-top: 20px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 14px;
+}
+
+.log summary {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cream-dimmer);
+  cursor: pointer;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.log-stage {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--duck);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.log-question {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.log-note {
+  font-size: 12px;
+  color: var(--cream-dim);
+  font-style: italic;
+}
+
+@media (min-width: 640px) {
+  .card {
+    max-width: 600px;
+  }
+}
+
+@media (max-width: 420px) {
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duck-quack,
+  .ask-btn,
+  .category-btn,
+  .ripple-unit.is-active .ripple-dot {
+    animation: none !important;
+    transition: none !important;
+  }
+}
