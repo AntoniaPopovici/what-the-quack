@@ -8,7 +8,7 @@ it walks you through four stages — **understand → isolate → test →
 verify** — asking one open question at a time instead of a generic
 checklist. No AI, no account, no data leaves your browser.
 
-**[Live demo →](#)** _(fill in once deployed — see below)_
+**[Live demo →](https://antoniapopovici.github.io/what-the-quack/)**
 
 ## Why
 
@@ -29,7 +29,7 @@ yourself.
 Requires [Node.js](https://nodejs.org) 18+.
 
 ```bash
-git clone https://github.com/<your-username>/what-the-quack.git
+git clone https://github.com/AntoniaPopovici/what-the-quack.git
 cd what-the-quack
 npm install
 npm run dev
