@@ -1,28 +1,36 @@
-# what the quack 🦆
+# What the QUACK? 🦆
 
-A Socratic rubber-duck debugging tool. It never gives you the answer —
-only the next question.
+Rubber duck debugging in the browser. You explain your code to a duck
+that says nothing back, and the bug tends to fall out of your own
+explanation. No AI, no account, nothing leaves your browser.
 
-You describe what you're stuck on, pick what kind of problem it is, and
-it walks you through four stages — **understand → isolate → test →
-verify** — asking one open question at a time instead of a generic
-checklist. No AI, no account, no data leaves your browser.
+There is no hosted demo right now. Run it locally (see below). It builds
+to a static site, so any host works once you deploy.
 
-**[Live demo →](https://antoniapopovici.github.io/what-the-quack/)**
+## The method
 
-## Why
+Straight from [rubberduckdebugging.com](https://rubberduckdebugging.com).
+Tell the duck what the code is supposed to do, then walk it through what
+it actually does, one line at a time. Somewhere mid sentence you say
+"and then it does X" and realise it doesn't do X. The duck sits there
+serenely, having helped.
 
-Explaining a bug out loud, to a literal rubber duck, often surfaces the
-answer before you finish the sentence. This is that trick, structured a
-little more deliberately: the questions are grouped by the *kind* of bug
-(a regression, something that never worked, a flaky/intermittent
-failure, or silently wrong output), because the useful question for
-"this broke and used to work" is different from the useful question for
-"this is flaky."
+The app just holds that shape:
 
-It's not a substitute for AI tools when you just need an answer fast —
-it's for the moments where you'd benefit more from thinking it through
-yourself.
+1. **"Tell the duck what this is supposed to do."** Plain words, before
+   you look at the code.
+2. **"Now go through what it actually does, one line at a time."** One
+   big space that stays on screen. The duck never interrupts.
+3. You spot the gap, hit **"I see it now,"** and your explanation is
+   handed back to you to keep.
+
+### Still stuck?
+
+If explaining it out loud genuinely didn't get you there, an **"I'm
+still stuck"** button shows a few prompts picked for relevance to what
+you have written. These are clearly not the duck talking. They are just
+prompts to get you articulating again. That is the only place the prompt
+bank and the classifier below come into play.
 
 ## Running locally
 
@@ -43,87 +51,73 @@ Then open the local URL Vite prints (usually `http://localhost:5173`).
 npm run build
 ```
 
-Outputs static files to `dist/` — plain HTML/CSS/JS, deployable anywhere
-that serves static files.
+Outputs static files to `dist/`. Plain HTML, CSS and JS, deployable
+anywhere that serves static files.
 
 ## Deploying to GitHub Pages
 
-1. In `vite.config.js`, set `base` to `/<your-repo-name>/` (already set
-   to `/what-the-quack/` — update it if you rename the repo).
-2. Install the deploy helper (already a dev dependency):
-   ```bash
-   npm install
-   ```
-3. Deploy:
+1. In `vite.config.js`, `base` is set to `/what-the-quack/`. Update it
+   if you rename the repo.
+2. Deploy (the helper is already a dev dependency):
    ```bash
    npm run deploy
    ```
-   This builds the app and pushes `dist/` to a `gh-pages` branch.
-4. In your repo's **Settings → Pages**, set the source to the `gh-pages`
-   branch.
+   This builds and pushes `dist/` to a `gh-pages` branch.
+3. In **Settings, then Pages**, set the source to the `gh-pages` branch.
 
-Prefer Vercel or Netlify instead? Both auto-detect Vite — just set the
-build command to `npm run build` and the output directory to `dist`,
-and set `base: "/"` in `vite.config.js` since you won't be under a repo
-subpath.
+Prefer Vercel or Netlify? Both auto detect Vite. Build command
+`npm run build`, output directory `dist`, and set `base: "/"` in
+`vite.config.js` since you won't be under a repo subpath.
 
 ## Project structure
 
 ```
 src/
-  App.jsx                 – main app state & flow
-  App.css                 – all component styling
-  index.css               – global reset
+  App.jsx                  flow: intent, walkthrough, (stuck), solved
+  App.css                  all styling
+  index.css                global reset
   components/
-    Duck.jsx               – the duck (blink/quack animation)
-    RippleTracker.jsx       – 4-stage progress indicator
-    CategoryPicker.jsx      – description input + category suggestion
+    Duck.jsx               the duck. it just sits there.
+    StuckPrompts.jsx       the "I'm still stuck" prompt panel
+    SolvedScreen.jsx       end state; hands your explanation back
   data/
-    questions.js            – the question pool, organized by
-                               category → stage → question[] (each
-                               question also carries `tags` for
-                               relevance scoring)
+    questions.js           prompt pool for the stuck panel, in four
+                           rough buckets; each prompt carries `tags`
+                           for relevance scoring
   nlp/
-    tokenize.js              – normalize / tokenize / stem
-    signals.js                – weighted keyword & phrase dictionaries
-    classify.js                – scores free text against each bug
-                                  category, flags "this looks like
-                                  planning, not a bug"
-    selectQuestion.js           – picks the most relevant question in
-                                   a stage's pool based on the user's
-                                   notes, instead of pure random
+    tokenize.js            normalize, tokenize, stem
+    signals.js             weighted keyword and phrase dictionaries
+    classify.js            buckets free text into regression,
+                           neverWorked, intermittent or silentWrong
+    selectQuestion.js      ranks stuck-panel prompts by tag overlap
+                           with what you wrote
 ```
 
-## How the classification works
+## How the classifier works
 
-There's no AI/LLM involved anywhere in this app — on purpose, so it
-stays free to run for everyone and works offline. The category
-suggestion and question selection are classic rule-based NLP:
+Nothing in this app calls an AI or LLM. It works offline and costs
+nothing to run. When you ask for a nudge, placing your text into a
+bucket and ranking prompts is classic rule based NLP:
 
-1. **Normalize & tokenize** the user's text (lowercase, strip
-   punctuation, drop stopwords, light suffix-stripping stemmer so
-   "crashed"/"crashing"/"crashes" all match the same signal).
-2. **Score against weighted dictionaries** — each bug category
-   (`regression`, `neverWorked`, `intermittent`, `silentWrong`) has a
-   list of phrases and stems that suggest it (e.g. "used to work" is a
-   strong regression signal), plus a separate `offTopic` dictionary
-   for planning/ideation language ("no code yet", "how do I start").
-3. **Cross-check against a general dev-vocabulary score** — if the
-   text also contains real debugging vocabulary (error, function,
-   output, crash, …), that pulls down the offTopic score, since
-   planning-flavored words can legitimately show up in real bug
-   reports too ("not sure how to approach this null check").
-4. **Question selection** works the same way at a smaller scale: every
-   question carries a few `tags`, and when picking the next question
-   the app scores each candidate in the stage's pool against the
-   user's most recent notes and picks randomly among the top-scoring
-   ones — relevant, but not robotically deterministic.
+1. **Normalize and tokenize** the text. Lowercase, strip punctuation,
+   drop stopwords, light suffix stripping stemmer so "crashed",
+   "crashing" and "crashes" collapse to one signal.
+2. **Score against weighted dictionaries.** Each bucket (`regression`,
+   `neverWorked`, `intermittent`, `silentWrong`) has phrases and stems
+   that suggest it. "used to work" points at regression. There is also
+   an `offTopic` dictionary for planning language like "no code yet".
+3. **Cross check against general dev vocabulary.** Real debugging words
+   like error, function or output pull the `offTopic` score down, so a
+   genuine bug report phrased tentatively isn't mistaken for ideation.
+4. **Rank the prompts.** Every prompt carries a few `tags`. The app
+   scores each against your words and shows the top handful, with a
+   random spread when nothing clearly matches.
 
-All of this is inspectable/tunable by editing plain JS objects in
-`src/nlp/signals.js` — no model weights, no training step.
+All of it is tunable by editing plain JS objects in `src/nlp/signals.js`.
+No model weights, no training step.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT, see [LICENSE](./LICENSE).
 
 Made by Antonia Adelina Popovici.

@@ -1,69 +1,50 @@
 import { useEffect, useRef, useState } from "react";
 import Duck from "./components/Duck";
-import RippleTracker from "./components/RippleTracker";
-import CategoryPicker from "./components/CategoryPicker";
-import { CATEGORIES, STAGE_ORDER } from "./data/questions";
-import { selectQuestion } from "./nlp/selectQuestion";
+import StuckPrompts from "./components/StuckPrompts";
+import SolvedScreen from "./components/SolvedScreen";
+import { classify } from "./nlp/classify";
+import { pickTopRelevant } from "./nlp/selectQuestion";
+import { CATEGORIES, GENERIC_NUDGES } from "./data/questions";
 import "./App.css";
 
+// The escape hatch: classify whatever the user has written so far into
+// one of the four rough buckets, then pull a few tag-relevant prompts.
+// Falls back to method-faithful generic nudges when there's nothing
+// confident to classify.
+function nudgesFor(text) {
+  const { best } = classify(text);
+  if (!best) return GENERIC_NUDGES;
+  return pickTopRelevant(CATEGORIES[best].questions, text, 4).map((q) => q.text);
+}
+
+// intent  – "what is this supposed to do?"
+// walk    – "now go line by line: what does it actually do?"
+// stuck   – walk + a few nudge prompts revealed
+// solved  – you found it
 export default function App() {
-  const [categoryKey, setCategoryKey] = useState(null);
-  const [stageIndex, setStageIndex] = useState(0);
-  const [question, setQuestion] = useState(null); // { text, tags }
-  const [notes, setNotes] = useState("");
-  const [history, setHistory] = useState([]);
-  const [quacking, setQuacking] = useState(false);
-  const [started, setStarted] = useState(false);
-  const textareaRef = useRef(null);
-
-  const category = categoryKey ? CATEGORIES[categoryKey] : null;
-
-  const chooseCategory = (key, initialDescription) => {
-    const pool = CATEGORIES[key].stages[STAGE_ORDER[0]];
-    setCategoryKey(key);
-    setStageIndex(0);
-    setQuestion(selectQuestion(pool, initialDescription, null));
-    setHistory([]);
-    setNotes(initialDescription || "");
-    setStarted(false);
-  };
-
-  const nextQuestion = () => {
-    if (!category) return;
-
-    setHistory((h) => [
-      ...h,
-      { stage: STAGE_ORDER[stageIndex], question: question.text, note: notes.trim() },
-    ]);
-
-    const nextIndex = Math.min(stageIndex + 1, STAGE_ORDER.length - 1);
-    const pool = category.stages[STAGE_ORDER[nextIndex]];
-    // Use whatever the user just typed to steer relevance for the next
-    // question; if the stage didn't advance (already at the last one),
-    // still avoid repeating the exact same question.
-    const avoid = nextIndex === stageIndex ? question.text : null;
-
-    setQuestion(selectQuestion(pool, notes, avoid));
-    setStageIndex(nextIndex);
-    setNotes("");
-    setStarted(true);
-    setQuacking(true);
-    setTimeout(() => setQuacking(false), 260);
-    setTimeout(() => textareaRef.current?.focus(), 50);
-  };
-
-  const restart = () => {
-    setCategoryKey(null);
-    setStageIndex(0);
-    setQuestion(null);
-    setNotes("");
-    setHistory([]);
-    setStarted(false);
-  };
+  const [phase, setPhase] = useState("intent");
+  const [intent, setIntent] = useState("");
+  const [walkthrough, setWalkthrough] = useState("");
+  const [nudges, setNudges] = useState([]);
+  const walkRef = useRef(null);
 
   useEffect(() => {
-    if (categoryKey) textareaRef.current?.focus();
-  }, [categoryKey]);
+    if (phase === "walk") walkRef.current?.focus();
+  }, [phase]);
+
+  const startWalk = () => {
+    if (intent.trim()) setPhase("walk");
+  };
+  const getStuck = () => {
+    setNudges(nudgesFor(`${intent} ${walkthrough}`));
+    setPhase("stuck");
+  };
+  const restart = () => {
+    setIntent("");
+    setWalkthrough("");
+    setNudges([]);
+    setPhase("intent");
+  };
 
   return (
     <div className="page">
@@ -82,64 +63,85 @@ export default function App() {
           d="M0,140 C260,80 500,190 760,130 C1000,75 1220,180 1440,130 L1440,200 L0,200 Z"
         />
       </svg>
+
       <div className="card">
         <div className="header">
-          <span className="eyebrow">what the quack</span>
+          <span className="eyebrow">What the QUACK?</span>
+          <span className="tagline">
+            explain your code to a duck that won't say anything back
+          </span>
         </div>
 
         <div className="duck-row">
-          <Duck quacking={quacking} />
+          <Duck />
         </div>
 
-        {!category ? (
-          <CategoryPicker onPick={chooseCategory} />
+        {phase === "solved" ? (
+          <SolvedScreen intent={intent} walkthrough={walkthrough} onRestart={restart} />
+        ) : phase === "intent" ? (
+          <div className="step">
+            <p className="cue">
+              Tell the duck what this code is <em>supposed</em> to do. Say it the
+              way you would to another person.
+            </p>
+            <textarea
+              className="notes"
+              autoFocus
+              rows={5}
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              placeholder="“this function takes a list of orders and returns the total, skipping the cancelled ones…”"
+            />
+            <p className="notes-hint">
+              whatever you type stays in your browser and is never saved
+            </p>
+            <div className="actions">
+              <button className="ask-btn" onClick={startWalk} disabled={!intent.trim()}>
+                Quack!
+              </button>
+            </div>
+          </div>
         ) : (
-          <>
-            <RippleTracker stageIndex={stageIndex} />
+          <div className="step">
+            <div className="recap">
+              <span className="recap-label">it should</span>
+              <span className="recap-text">{intent.trim()}</span>
+            </div>
 
-            <p className="question">
-              {started ? question.text : "One more thing before you start — anything to add?"}
+            <p className="cue">
+              Now go through what it <em>actually</em> does, one line at a time.
+              Say each step out loud, as if the duck has never seen the code.
+            </p>
+            <textarea
+              ref={walkRef}
+              className="notes notes-tall"
+              rows={9}
+              value={walkthrough}
+              onChange={(e) => setWalkthrough(e.target.value)}
+              placeholder="“line 1, I grab the orders array. line 2, I loop through and add each price. wait, I add it before I check whether the order is cancelled…”"
+            />
+            <p className="notes-hint">
+              the duck won't answer. the bug usually turns up somewhere in what you just said.
             </p>
 
-            <textarea
-              ref={textareaRef}
-              className="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={
-                started
-                  ? "type your answer, or just think it through…"
-                  : "optional — more detail here sharpens the next question…"
-              }
-              rows={4}
-            />
+            {phase === "stuck" && (
+              <StuckPrompts prompts={nudges} onBack={() => setPhase("walk")} />
+            )}
 
             <div className="actions">
-              <button className="ask-btn" onClick={nextQuestion}>
-                {started ? "next question" : "Quack!"}
+              <button className="ask-btn" onClick={() => setPhase("solved")}>
+                I see it now
               </button>
-              {started && (
-                <button className="reset-btn" onClick={restart}>
-                  start over
+              {phase === "walk" && (
+                <button className="reset-btn" onClick={getStuck}>
+                  I'm still stuck
                 </button>
               )}
             </div>
-
-            {history.length > 0 && (
-              <details className="log">
-                <summary>your trail ({history.length})</summary>
-                <div className="log-list">
-                  {history.map((h, i) => (
-                    <div className="log-item" key={i}>
-                      <span className="log-stage">{h.stage}</span>
-                      <span className="log-question">{h.question}</span>
-                      {h.note && <span className="log-note">{h.note}</span>}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </>
+            <button className="startover-link" onClick={restart}>
+              start over
+            </button>
+          </div>
         )}
       </div>
     </div>

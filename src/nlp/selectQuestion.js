@@ -1,19 +1,27 @@
 import { tokenize } from "./tokenize";
 
 /**
- * Build a stemmed token set for a question's tags once, on demand.
- * Cheap enough to recompute each call given the pool sizes here (≤6
- * questions per stage) — no need to precompute/cache at build time.
+ * Relevance scoring for the "I'm still stuck" escape hatch.
+ *
+ * The main app never asks questions. You explain to a silent duck.
+ * This only runs if explaining didn't get you there: given a bucket's
+ * prompt pool and whatever you've written, it ranks prompts by how much
+ * their tags overlap your own words, so the nudges you see connect to
+ * the thing you're actually stuck on.
+ */
+
+/**
+ * Build a stemmed token set for a prompt's tags. Cheap to recompute
+ * per call at these pool sizes, so no build-time caching is needed.
  */
 function questionTokenSet(question) {
   return new Set(tokenize(question.tags.join(" ")));
 }
 
 /**
- * Score a question against the user's notes using weighted term
- * overlap: each tag-token that also appears in the notes contributes,
- * weighted a little extra if it's a rarer/more specific token (longer
- * stemmed tokens tend to be more specific than short ones like "test").
+ * Weighted term overlap between a prompt's tags and the user's notes.
+ * Longer stemmed tokens tend to be more specific ("dependency" vs.
+ * "test"), so they count a little extra.
  */
 function scoreQuestion(question, notesTokenFreq) {
   const qTokens = questionTokenSet(question);
@@ -28,41 +36,40 @@ function scoreQuestion(question, notesTokenFreq) {
   return score;
 }
 
-/**
- * Pick the next question from a stage's pool.
- *
- * - If there's no usable notes text yet, falls back to uniform random
- *   (minus whatever was just asked, to avoid immediate repeats).
- * - Otherwise scores every candidate by tag/notes overlap and picks
- *   randomly among the top-scoring tier, so relevance is respected but
- *   the flow doesn't feel robotic or fully deterministic.
- * - If nothing scores above zero (notes don't overlap with any tags),
- *   falls back to uniform random rather than forcing an irrelevant
- *   "best" match.
- */
-export function selectQuestion(pool, notesText, avoidText) {
-  const candidates = avoidText && pool.length > 1
-    ? pool.filter((q) => q.text !== avoidText)
-    : pool;
-
-  const notesTokens = tokenize(notesText || "");
-  if (notesTokens.length === 0) {
-    return candidates[Math.floor(Math.random() * candidates.length)];
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
+  return a;
+}
+
+/**
+ * Pick `count` prompts from `pool`, most relevant to `notesText` first.
+ *
+ * - No usable notes → a random spread, so repeat visits vary.
+ * - Some tag overlap → the overlapping prompts, ranked, topped up with
+ *   a random spread of the rest if there aren't enough that score.
+ *
+ * Always returns exactly `count` distinct prompts (or the whole pool if
+ * it's smaller than `count`).
+ */
+export function pickTopRelevant(pool, notesText, count = 4) {
+  const n = Math.min(count, pool.length);
+  const notesTokens = tokenize(notesText || "");
+  if (notesTokens.length === 0) return shuffle(pool).slice(0, n);
 
   const freq = {};
   for (const t of notesTokens) freq[t] = (freq[t] || 0) + 1;
 
-  const scored = candidates.map((q) => ({
-    q,
-    score: scoreQuestion(q, freq),
-  }));
+  const scored = pool.map((q) => ({ q, score: scoreQuestion(q, freq) }));
+  scored.sort((a, b) => b.score - a.score);
 
-  const maxScore = Math.max(...scored.map((s) => s.score));
-  if (maxScore <= 0) {
-    return candidates[Math.floor(Math.random() * candidates.length)];
-  }
+  const relevant = scored.filter((s) => s.score > 0).map((s) => s.q);
+  if (relevant.length >= n) return relevant.slice(0, n);
 
-  const top = scored.filter((s) => s.score >= maxScore * 0.75);
-  return top[Math.floor(Math.random() * top.length)].q;
+  const chosen = new Set(relevant);
+  const filler = shuffle(pool.filter((q) => !chosen.has(q)));
+  return [...relevant, ...filler].slice(0, n);
 }
